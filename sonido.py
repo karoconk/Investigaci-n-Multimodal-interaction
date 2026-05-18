@@ -1,14 +1,67 @@
-
-
 import cv2
 import mediapipe as mp
 import numpy as np
 import math
 import time
+import winsound
+import os
 
-mp.solutions = mp.solutions
+# ============================================
+# CONFIGURACIÓN DE SONIDOS PERSONALIZADOS
+# ============================================
+
+# Rutas de tus archivos de sonido (cambia los nombres por los tuyos)
+SONIDO_COLOR = "sonidos/change.wav"    # Cambia por tu archivo
+SONIDO_BORRAR = "sonidos/delete.wav"         # Cambia por tu archivo
+SONIDO_ARRANQUE = "sonidos/drag.wav"    # Cambia por tu archivo
+
+# Verificar qué sonidos existen
+def verificar_sonidos():
+    sonidos_disponibles = {
+        'color': os.path.exists(SONIDO_COLOR),
+        'erase': os.path.exists(SONIDO_BORRAR),
+        'drag': os.path.exists(SONIDO_ARRANQUE)
+    }
+    
+    print("\n🔊 Verificando archivos de sonido:")
+    for nombre, existe in sonidos_disponibles.items():
+        if existe:
+            print(f"  ✅ {nombre}: encontrado")
+        else:
+            print(f"  ⚠️ {nombre}: NO encontrado - usando beep")
+    
+    return sonidos_disponibles
+
+sonidos_existentes = verificar_sonidos()
+
+def reproducir_sonido_accion(tipo):
+    """Reproduce sonido personalizado si existe, si no usa beep"""
+    if tipo == 'color' and sonidos_existentes['color']:
+        winsound.PlaySound(SONIDO_COLOR, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    elif tipo == 'erase' and sonidos_existentes['erase']:
+        winsound.PlaySound(SONIDO_BORRAR, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    elif tipo == 'drag' and sonidos_existentes['drag']:
+        winsound.PlaySound(SONIDO_ARRANQUE, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    else:
+        # Fallback a beep si no hay archivo
+        if tipo == 'color':
+            winsound.Beep(1046, 100)
+        elif tipo == 'erase':
+            winsound.Beep(330, 200)
+        elif tipo == 'drag':
+            winsound.Beep(660, 150)
+
+# ============================================
+# INICIALIZAR MEDIAPIPE
+# ============================================
+
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.6, min_tracking_confidence=0.6)
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=1,
+    min_detection_confidence=0.6,
+    min_tracking_confidence=0.6
+)
 mp_draw = mp.solutions.drawing_utils
 
 cap = cv2.VideoCapture(0)
@@ -235,6 +288,7 @@ def handle_gesture(gesture, point):
         if last_gesture != "drag":
             commit_current_stroke()
             start_drag(point)
+            reproducir_sonido_accion('drag')  # Sonido personalizado o beep
         else:
             update_drag(point)
 
@@ -242,19 +296,33 @@ def handle_gesture(gesture, point):
         commit_current_stroke()
         color_index = (color_index + 1) % len(colors)
         current_color = colors[color_index]
+        reproducir_sonido_accion('color')  # Sonido personalizado o beep
 
     elif gesture == "erase" and last_gesture != "erase":
         commit_current_stroke()
         erase_nearest_stroke(point)
+        reproducir_sonido_accion('erase')  # Sonido personalizado o beep
 
     last_gesture = gesture
 
 
 current_color = colors[color_index]
 
+running = True
 cv2.namedWindow("Air Drawing PRO")
 
-while True:
+print("=" * 50)
+print("🎨 Air Drawing PRO con Sonidos Personalizados!")
+print("=" * 50)
+print("Controles:")
+print("  ✍️  1 dedo     - Dibujar")
+print("  🖐️  2 dedos    - Cambiar color (🔊 con sonido)")
+print("  ✋  4+ dedos   - Borrar (🔊 con sonido)")
+print("  🤏  Pinza      - Mover trazos (🔊 con sonido)")
+print("  ❌  Presiona 'q' para salir")
+print("=" * 50)
+
+while running:
     success, img = cap.read()
     if not success:
         continue
@@ -293,8 +361,17 @@ while True:
     img = cv2.bitwise_and(img, img_inv)
     img = cv2.bitwise_or(img, canvas)
 
+    # Mostrar color actual
     cv2.rectangle(img, (10,10), (100,100), colors[color_index], -1)
-    cv2.putText(img, "1 dedo dibuja | 2 dedos cambia color | palma borra | pinza mueve", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    
+    # Mostrar texto de instrucciones
+    cv2.putText(img, "1 dedo dibuja | 2 dedos cambia color | palma borra | pinza mueve", 
+                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    
+    # Mostrar indicador de sonidos personalizados
+    if any(sonidos_existentes.values()):
+        cv2.putText(img, "🔊 Sonidos Personalizados ACTIVADOS", (10, 60), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
     cv2.imshow("Air Drawing PRO", img)
 
@@ -303,3 +380,4 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+print("\n👋 Programa cerrado correctamente")

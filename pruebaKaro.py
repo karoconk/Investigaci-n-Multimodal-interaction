@@ -1,14 +1,21 @@
-
-
 import cv2
 import mediapipe as mp
 import numpy as np
 import math
 import time
 
-mp.solutions = mp.solutions
+def cerrar_con_x():
+    global running
+    running = False
+
+# Inicializar MediaPipe de la forma correcta para la versión 0.10.35
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.6, min_tracking_confidence=0.6)
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=1,
+    min_detection_confidence=0.6,
+    min_tracking_confidence=0.6
+)
 mp_draw = mp.solutions.drawing_utils
 
 cap = cv2.VideoCapture(0)
@@ -252,9 +259,10 @@ def handle_gesture(gesture, point):
 
 current_color = colors[color_index]
 
+running = True
 cv2.namedWindow("Air Drawing PRO")
 
-while True:
+while running:
     success, img = cap.read()
     if not success:
         continue
@@ -302,4 +310,4 @@ while True:
         break
 
 cap.release()
-cv2.destroyAllWindows()
+cv2.destroyAllWindows() 
